@@ -1,0 +1,999 @@
+##alpha diversity
+library(bipartite)
+library(readxl)
+library(vegan)
+library(chemodiv)
+
+#habitat vs. functional group
+##
+diversity(pivot.everything)
+diversity(pivot.everything, index = "shannon")
+
+shannon_pollinators_FG <- diversity(pivot.everything, index = "shannon")
+shannon_pollinators_FG
+
+simpson_pollinators_FG <- diversity(pivot.everything, index="simpson")
+
+Pielou_even <- calcDiv(pivot.everything, type="PielouEven")
+Pielou_even
+
+simpson_calc <- calcDiv(pivot.everything, type = "Simpson")
+simpson_calc
+
+
+alpha_div_total <- data.frame(label=rownames(pivot.everything),shannon=shannon_pollinators_FG, simpson= simpson_pollinators_FG, pielou= Pielou_even, Simpsoncalc= simpson_calc)
+
+alpha_div_total
+
+write.csv(alpha_div_total, file="Alpha_Div_Total.csv")
+
+##graphing alpha
+library(tidyverse)
+indexesalpha_total_pollinators <- indexesalpha_total_pollinators %>%
+  mutate(Month = factor(Month,
+                        levels = c("Apr","May","Jun","Jul","Aug","Sep","Oct")))
+
+alpha_long <- indexesalpha_total_pollinators %>%
+  pivot_longer(cols = c(Shannon, Pielou_Evenness, Simpson),
+               names_to = "Index",
+               values_to = "Value")
+
+#### LINE GRAPH
+
+my_colors <- c(
+  "Maquis"   = "#1B9E77",  # teal
+  "Meadow"   = "#7570B3",  # muted purple
+  "Riparian" = "#E6AB02"   # mustard yellow
+)
+
+ggplot(alpha_long,
+       aes(x = Month, y = Value,
+           color = Habitat, group = Habitat)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~ Index, scales = "free_y") +
+  theme_classic() +
+  scale_color_manual(values = c(
+    "Maquis"   = "#1B9E77",  # teal
+    "Meadow"   = "#7570B3",  # muted purple
+    "Riparian" = "#E6AB02"
+  )) +
+  labs(y = "Diversity Index",
+       x = "Month",
+       color = "Habitat")
+
+#bargraph
+ggplot(alpha_long,
+       aes(x = Month, y = Value, fill = Habitat)) +
+  geom_col(position = position_dodge(width = 0.8),
+           width = 0.7) +
+  facet_wrap(~ Index, scales = "free_y") +
+  theme_classic() +
+  scale_fill_manual(values = my_colors) +
+  labs(y = "Diversity Index",
+       x = "Month",
+       fill = "Habitat") +
+  theme(
+    legend.position = "top",
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+### Pollinator indexes vs plant indexes
+
+# Pollinator Shannon
+poll <- data.frame(
+  Habitat = c(rep("Maquis",7), rep("Meadow",7), rep("Riparian",7)),
+  Month = rep(c("Apr","May","Jun","Jul","Aug","Sep","Oct"), 3),
+  Shannon_poll = c(
+    0.281167573,0.873392388,1.097061859,1.261096805,0.426750862,0.736751193,1.033162217,
+    0.468518836,0.651396305,1.334819759,0.965388064,1.038370636,1.069260918,0.793392354,
+    0,0,1.307515614,0.950270539,1.135804808,0.900256051,0.450561209
+  )
+)
+
+# Plant Shannon
+plant <- data.frame(
+  Habitat = c(rep("Maquis",7), rep("Meadow",7), rep("Riparian",7)),
+  Month = rep(c("Apr","May","Jun","Jul","Aug","Sep","Oct"), 3),
+  Shannon_plant = c(
+    1.03,0.52,1.31,0.61,0.96,0.78,1.12,
+    0.76,0.53,1.11,0.93,0.88,0.89,1.04,
+    0,0.69,0.57,1.07,1.25,1.02,0.86
+  )
+)
+
+#merging
+data_corr <- merge(poll, plant, by = c("Habitat","Month"))
+
+month_levels <- c("Apr","May","Jun","Jul","Aug","Sep","Oct")
+
+data_corr$Month <- factor(data_corr$Month,
+                          levels = month_levels,
+                          ordered = TRUE)
+
+data_corr <- data_corr[order(data_corr$Habitat,
+                             data_corr$Month), ]
+
+
+#check
+head(data_corr)
+table(data_corr$Habitat)
+
+##shapiro
+shapiro.test(data_corr$Shannon_poll)
+shapiro.test(data_corr$Shannon_plant)  ###came as normally distributed
+
+model_simple <- lm(Shannon_poll ~ Shannon_plant,
+                   data = data_corr)
+
+res <- residuals(model_simple)
+shapiro.test(res)
+
+
+#pearson
+cor.test(data_corr$Shannon_poll,
+         data_corr$Shannon_plant,
+         method = "pearson")
+
+##correlation abundance GLM
+install.packages("MASS")
+library(MASS)
+
+
+Corelationshannon <- glm(Abundance.plants.and.pollinators$shannon.pollinators~Abundance.plants.and.pollinators$Shannon.Plants, 
+    family = gaussian, data = Abundance.plants.and.pollinators) ###not significant
+
+summary(Corelationshannon)
+
+Corelationabundance<- glm.nb(Abundance.plants.and.pollinators$Abundance.Pollinators~Abundance.plants.and.pollinators$Abundance.Plant, 
+                        data = Abundance.plants.and.pollinators)
+
+
+summary(Corelationabundance)
+
+
+##alpha diversity bees
+library(readr)
+library(chemodiv)
+library(vegan)
+
+abundance_bees <- read_csv("Master GCE/Tesis/Databases/abundance bees.csv")
+View(abundance_bees)
+
+labels <- abundance_bees$Label
+
+abundance_bees$Label=NULL
+
+rownames(abundance_bees)=labels
+View(abundance_bees)
+
+shannon_bees= calcDiv(abundance_bees, type="Shannon")
+
+simpson_bees =calcDiv(abundance_bees,type= "Simpson")
+View(simpson_bees)
+
+diversity(abundance_bees, index = "simpson")
+
+pielou_bees= calcDiv(abundance_bees,type="PielouEven")
+
+alphadiversitybees= data.frame(labels=labels,shannon_bees=shannon_bees,simpson_bees=simpson_bees,pielou_bees=pielou_bees)
+View(alphadiversitybees)
+
+write.csv(alphadiversitybees, file="Alpha Diversity Bees.csv")
+
+##graphing abundance NULL##graphing abundance correlation
+
+# Install and load ggplot2 if not already installed/loaded
+# install.packages("ggplot2")
+library(ggplot2)
+library(ggpubr)
+library(MASS)
+
+# Create a scatter plot and add the regression line
+ggplot(Abundance.plants.and.pollinators,
+       aes(x = Abundance.Plant,
+           y = Abundance.Pollinators)) +
+  geom_point(color = "#3A6D8C", size = 2.5, alpha = 0.7) +
+  geom_smooth(method = "glm.nb",
+              se = TRUE,
+              color = "#C84B31",
+              fill = "grey",
+              linewidth = 1.2,
+              linetype = "dashed") +
+  labs(x = "Number of Flower Units",
+       y = "Number of Pollinators") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = "Arial", face = "bold", size = 14),
+    axis.title.y = element_text(family = "Arial", face = "bold", size = 14),
+    axis.text.x  = element_text(family = "Arial",face = "bold", size = 12),
+    axis.text.y  = element_text(family = "Arial",face = "bold", size = 12)
+  )
+
+
+###graphing abundance vs. habitat vs. shannon
+
+library(ggplot2)
+library(dplyr)
+
+
+ggplot(lollipopcsv,
+       aes(y = shannon.pollinators,
+           color = habitat.type)) +
+  
+  geom_segment(aes(x = Month_shift,
+                   xend = Month_shift,
+                   y = 0,
+                   yend = shannon.pollinators),
+               linewidth = 1) +
+  
+  geom_point(aes(x = Month_shift,
+                 size = Abundance.Pollinators),
+             alpha = 0.9) +
+  
+  scale_x_continuous(
+    breaks = 1:7,
+    labels = c("April","May","June","July",
+               "August","September","October")
+  ) +
+  
+  scale_size_continuous(range = c(3,9),
+                        name = "Pollinator Abundance") +
+  
+  scale_color_manual(
+    values = c(
+      "Maquis"   = "#1B9E77",  # teal
+      "Meadow"   = "#7570B3",  # muted purple
+      "Riparian" = "#E6AB02"   # mustard
+    )
+  ) +
+  
+  labs(x = "Month",
+       y = "Shannon Diversity Index",
+       color = "Habitat") +
+  
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 14),
+    axis.title.y = element_text(face = "bold", size = 14),
+    axis.text.x  = element_text(size = 12),
+    axis.text.y  = element_text(size = 12)
+  )
+
+
+
+
+
+
+
+
+lollipopcsv <- lollipopcsv %>%
+  mutate(
+    Months = factor(Months,
+                    levels = c("April","May","June","July",
+                               "August","September","October")),
+    
+    Month_num = as.numeric(Months),
+    
+    offset = case_when(
+      habitat.type == "Maquis"   ~ -0.3,
+      habitat.type == "Meadow"   ~  0,
+      habitat.type == "Riparian" ~  0.3
+    ),
+    
+    Month_shift = Month_num + offset
+  )
+
+
+ggplot(lollipopcsv,
+       aes(y = shannon.pollinators,
+           color = habitat.type)) +
+  
+  geom_segment(aes(x = Month_shift,
+                   xend = Month_shift,
+                   y = 0,
+                   yend = shannon.pollinators),
+               linewidth = 1) +
+  
+  geom_point(aes(x = Month_shift,
+                 size = Abundance.Pollinators),
+             alpha = 0.9) +
+  
+  scale_x_continuous(
+    breaks = 1:7,
+    labels = c("April","May","June","July",
+               "August","September","October")
+  ) +
+  
+  scale_size_continuous(range = c(3,9),
+                        name = "Pollinator Abundance") +
+  
+  labs(x = "Month",
+       y = "Shannon Diversity Index",
+       color = "Habitat") +
+  
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(family = "Arial", face = "bold", size = 14),
+    axis.title.y = element_text(family = "Arial", face = "bold", size = 14),
+    axis.text.x  = element_text(family = "Arial", size = 12),
+    axis.text.y  = element_text(family = "Arial", size = 12)
+  )
+
+
+
+
+
+####beta diversity
+library(vegan)
+library(betapart)
+
+labels=sorensenbetadiversity$Label
+labels
+sorensenbetadiversity$Label=NULL
+rownames(sorensenbetadiversity)=labels
+
+sorensen_beta_div <-beta.pair(sorensenbetadiversity,index.family = "sorensen")
+sorensen_beta_div$beta.sim= as.matrix(sorensen_beta_div$beta.sim)
+
+sorensen_beta_div$beta.sne= as.matrix(sorensen_beta_div$beta.sne)
+
+sorensen_beta_div$beta.sor= as.matrix(sorensen_beta_div$beta.sor)
+
+rownames(sorensen_beta_div$beta.sim)= labels
+colnames(sorensen_beta_div$beta.sim)=labels
+
+rownames(sorensen_beta_div$beta.sne)= labels
+colnames(sorensen_beta_div$beta.sne)=labels
+
+rownames(sorensen_beta_div$beta.sor)= labels
+colnames(sorensen_beta_div$beta.sor)=labels
+
+write.csv(sorensen_beta_div$beta.sim, file = "pollinator betadiv sim.csv")
+
+write.csv(sorensen_beta_div$beta.sne, file = "pollinator betadiv sne.csv")
+
+write.csv(sorensen_beta_div$beta.sor, file = "pollinator betadiv sor.csv")     
+
+
+##pollination networks
+
+#graph for network
+
+
+###MAQUIS
+colnames(Maquis.Agosto) <- gsub("\\.", " ", colnames(Maquis.Agosto))
+plotweb(Maquis.Agosto, srt = 90, higher_color = "orange", lower_color = "green", 
+       link_color = "higher", text_size = 1.2)
+
+
+colnames(Maquis.Maggio) <- gsub("\\.", " ", colnames(Maquis.Maggio))
+plotweb(Maquis.Maggio, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Maquis.Giugno) <- gsub("\\.", " ", colnames(Maquis.Giugno))
+plotweb(Maquis.Giugno, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Maquis.Luglio) <- gsub("\\.", " ", colnames(Maquis.Luglio))
+plotweb(Maquis.Luglio, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Maquis.Aprile) <- gsub("\\.", " ", colnames(Maquis.Aprile))
+plotweb(Maquis.Aprile, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Maquis.Ottobre) <- gsub("\\.", " ", colnames(Maquis.Ottobre))
+plotweb(Maquis.Ottobre, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Maquis.Settembre) <- gsub("\\.", " ", colnames(Maquis.Settembre))
+plotweb(Maquis.Settembre, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+
+##Meadow
+
+colnames(Meadow.Aprile) <- gsub("\\.", " ", colnames(Meadow.Aprile))
+plotweb(Meadow.Aprile, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Meadow.Maggio) <- gsub("\\.", " ", colnames(Meadow.Maggio))
+plotweb(Meadow.Maggio, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Meadow.Giugno) <- gsub("\\.", " ", colnames(Meadow.Giugno))
+plotweb(Meadow.Giugno, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Meadow.Luglio) <- gsub("\\.", " ", colnames(Meadow.Luglio))
+plotweb(Meadow.Luglio, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Meadow.Agosto) <- gsub("\\.", " ", colnames(Meadow.Agosto))
+plotweb(Meadow.Agosto, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Meadow.Ottobre) <- gsub("\\.", " ", colnames(Meadow.Ottobre))
+plotweb(Meadow.Ottobre, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Meadow.Settembre) <- gsub("\\.", " ", colnames(Meadow.Settembre))
+plotweb(Meadow.Settembre, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+
+
+####Riparian
+
+colnames(Riparian.Maggio) <- gsub("\\.", " ", colnames(Riparian.Maggio))
+plotweb(Riparian.Maggio, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Riparian.Aprile) <- gsub("\\.", " ", colnames(Riparian.Aprile))
+plotweb(Riparian.Aprile, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Riparian.Giugno) <- gsub("\\.", " ", colnames(Riparian.Giugno))
+plotweb(Riparian.Giugno, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Riparian.Luglio) <- gsub("\\.", " ", colnames(Riparian.Luglio))
+plotweb(Riparian.Luglio, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Riparian.Agosto) <- gsub("\\.", " ", colnames(Riparian.Agosto))
+plotweb(Riparian.Agosto, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Riparian.Settembre) <- gsub("\\.", " ", colnames(Riparian.Settembre))
+plotweb(Riparian.Settembre, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+colnames(Riparian.Ottobre) <- gsub("\\.", " ", colnames(Riparian.Ottobre))
+plotweb(Riparian.Ottobre, srt = 90, higher_color = "orange", lower_color = "green", 
+        link_color = "higher", text_size = 1.2)
+
+
+
+
+
+##higher_italic = FALSE,
+##lower_italic = FALSE USE TRUE IF NEEDED
+#srt = 0 if labels vertical etc orientation vertical= 90
+#family = NULL  arial etc use par to see list
+# lower_color = "black" color plots
+# lower_color = "black" links
+# link_color = "higher"
+#spacing = 0.3 spacing bt each box
+#text_size = "auto" auto choose space of windows if not decide lower than 1 tiny higher larger
+##higher_labels = NULL,
+###lower_labels = NULL,--- write c("Cephalaria.....")
+
+
+
+##network level
+
+library(bipartite)
+
+#index link per species, weighted connectance, shannon diversity of interaction, linkage diversity
+networklevel(Maquis.Agosto)
+
+##community level
+##robustness LL, functional complementarity (only low level LL)
+##extract these
+##networklevel(Maquis.Agosto,inde = c("robustness","functional.complementarity","weighted connectance","linkage density","links per species","Shannon diversity", "modularity Q"))
+maquis.agosto.networklevel <-networklevel(Maquis.Agosto)
+write.csv(maquis.agosto.networklevel, file="Maquis agosto network level.csv")
+
+##april
+
+maquis.aprile.networklevel <-networklevel(Maquis.Aprile)
+write.csv(maquis.aprile.networklevel, file="Maquis april network level.csv")
+
+##agosto
+
+maquis.agosto.networklevel <-networklevel(Maquis.Agosto)
+write.csv(maquis.agosto.networklevel, file="Maquis august network level.csv")
+
+##maggio
+
+maquis.maggio.networklevel <-networklevel(Maquis.Maggio)
+write.csv(maquis.maggio.networklevel, file="Maquis may network level.csv")
+
+
+##giugno
+
+maquis.june.networklevel <-networklevel(Maquis.Giugno)
+write.csv(maquis.june.networklevel, file="Maquis june network level.csv")
+
+
+##luglio
+maquis.july.networklevel <-networklevel(Maquis.Luglio)
+write.csv(maquis.july.networklevel, file="Maquis july network level.csv")
+
+##ottobre
+
+maquis.october.networklevel <-networklevel(Maquis.Ottobre)
+write.csv(maquis.october.networklevel, file="Maquis october network level.csv")
+
+##settembre
+
+maquis.sept.networklevel <-networklevel(Maquis.Settembre)
+write.csv(maquis.sept.networklevel, file="Maquis september network level.csv")
+
+
+## box plot for maquis
+
+library(tidyverse)
+
+# ---- Data ----
+maquis <- data.frame(
+  month = c("August","April","May","June","July","August","September"),
+  
+  Links_per_species = c(0.9,0.666666667,1,0.928571429,1.4,1,1.222222222),
+  
+  Modularity_Q = c(0.051724138,0.18,0.25443787,0.424858223,
+                   0.238227147,0.330578512,0.277777778),
+  
+  Weighted_NODF = c(52.5,0,31.48148148,13.95348837,
+                    22.5,16.66666667,9.375),
+  
+  Weighted_connectance = c(0.184738158,0.30833008,0.220352847,
+                           0.159884227,0.237385508,
+                           0.300420885,0.293681272),
+  
+  H = c(1.235427279,1.279854226,2.000917057,
+        1.922436496,1.909996656,
+        1.846220219,2.245171589),
+  
+  J = c(0.383807064,0.615479782,0.600478467,
+        0.496599503,0.593373824,
+        0.742973672,0.749456689),
+  
+  H2 = c(0.070972318,1,0.422865379,
+         0.616642018,0.278553641,
+         0.339634822,0.253683865),
+  
+  Robustness_LL = c(0.411451866,0.12125,0.379151786,
+                    0.426405418,0.557381276,
+                    0.363055556,0.562365417),
+  
+  Functional_complementarity_LL = c(77.84410366,10.95445115,
+                                    30.41201774,52.76909815,
+                                    41.22265965,8.558541066,
+                                    13.5716369)
+)
+
+# ---- Order months chronologically ----
+maquis$month <- factor(
+  maquis$month,
+  levels = c("April","May","June","July","August","September")
+)
+
+# ---- Long format ----
+maquis_long <- maquis %>%
+  pivot_longer(
+    cols = -month,
+    names_to = "Metric",
+    values_to = "Value"
+  )
+
+# ---- Rename panels ----
+maquis_long$Metric <- recode(maquis_long$Metric,
+                             "Links_per_species" = "Links per Species",
+                             "Modularity_Q" = "Modularity (Q)",
+                             "Weighted_NODF" = "Weighted Nestedness (NODF)",
+                             "Weighted_connectance" = "Weighted Connectance (Wc)",
+                             "H" = "Shannon Diversity (H')",
+                             "J" = "Interaction Evenness (J')",
+                             "H2" = "Network Specialization (H2)",
+                             "Robustness_LL" = "Robustness (LL)",
+                             "Functional_complementarity_LL" = "Functional Complementarity (LL)"
+)
+
+# ---- Plot ----
+
+ggplot(maquis_long, aes(x = "", y = Value, color = month)) +
+  geom_boxplot(fill = "grey85",
+               color = "black",
+               width = 0.4,
+               outlier.shape = NA) +
+  geom_point(size = 3) +
+  facet_wrap(~ Metric,
+             scales = "free_y",
+             ncol = 3,
+             strip.position = "left") +
+  theme_bw(base_size = 14) +
+  labs(x = "", y = NULL, color = "Month") +
+  theme(
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.y.left = element_text(angle = 90, face = "bold", size = 14),
+    axis.title = element_text(size = 18, face = "bold"),
+    axis.text.y = element_text(size = 14),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1, "cm")
+  )
+
+
+
+
+
+
+###meadow
+
+
+library(bipartite)
+
+
+##community level
+##robustness LL, functional complementarity (only low level LL)
+##extract these
+##networklevel(Maquis.Agosto,inde = c("robustness","functional.complementarity","weighted connectance","linkage density","links per species","Shannon diversity", "modularity Q"))
+meadow.may.networklevel <-networklevel(Meadow.Maggio)
+write.csv(meadow.may.networklevel, file="Meadow may network level.csv")
+
+##april
+meadow.april.networklevel <-networklevel(Meadow.Aprile)
+write.csv(meadow.april.networklevel, file="Meadow april network level.csv")
+
+#june
+meadow.june.networklevel <-networklevel(Meadow.Giugno)
+write.csv(meadow.june.networklevel, file="Meadow june network level.csv")
+
+#july
+meadow.july.networklevel <-networklevel(Meadow.Luglio)
+write.csv(meadow.july.networklevel, file="Meadow july network level.csv")
+
+#august
+meadow.august.networklevel <-networklevel(Meadow.Agosto)
+write.csv(meadow.august.networklevel, file="Meadow august network level.csv")
+
+#september 
+meadow.september.networklevel <-networklevel(Meadow.Settembre)
+write.csv(meadow.september.networklevel, file="Meadow september network level.csv")
+
+#october
+meadow.october.networklevel <-networklevel(Meadow.Ottobre)
+write.csv(meadow.october.networklevel, file="Meadow october network level.csv")
+
+
+## plotting meadow
+
+library(tidyverse)
+
+# ---- Data ----
+meadow <- data.frame(
+  month = c("May","April","June","July","August","September","October"),
+  
+  Links_per_species = c(1,0.875,1.3125,1.272727273,1,1.2,0.714285714),
+  
+  Modularity_Q = c(0.293628809,0.372881356,0.319857313,0.401228733,
+                   0.298553719,0.240362812,0.359375),
+  
+  Weighted_NODF = c(28.57142857,0,32.91666667,29.33333333,
+                    35,16.66666667,0),
+  
+  Weighted_connectance = c(0.328701318,0.158468363,0.170031607,
+                           0.211374895,0.203467061,
+                           0.2552623,0.254435318),
+  
+  H = c(1.570858964,1.01195864,2.415149124,
+        2.145026536,2.035260359,
+        2.120326197,1.494175138),
+  
+  J = c(0.755423479,0.373685333,0.58987442,
+        0.630668055,0.567950217,
+        0.658716369,0.60130031),
+  
+  H2 = c(0.47167896,0.900126599,0.343137121,
+         0.617451879,0.325784508,
+         0.221518002,1),
+  
+  Robustness_LL = c(0.1875,0.285555556,0.486673586,
+                    0.514901223,0.452305913,
+                    0.515125747,0.38625),
+  
+  Functional_complementarity_LL = c(15.87450787,94.21752519,
+                                    76.28310257,45.66061955,
+                                    41.62318269,19.50752981,
+                                    7.256364396)
+)
+
+# ---- Order months chronologically ----
+meadow$month <- factor(meadow$month,
+                       levels = c("April","May","June","July",
+                                  "August","September","October"))
+
+# ---- Long format ----
+meadow_long <- meadow %>%
+  pivot_longer(
+    cols = -month,
+    names_to = "Metric",
+    values_to = "Value"
+  )
+
+# ---- Rename panels ----
+meadow_long$Metric <- recode(meadow_long$Metric,
+                             "Links_per_species" = "Links per Species",
+                             "Modularity_Q" = "Modularity (Q)",
+                             "Weighted_NODF" = "Weighted Nestedness (NODF)",
+                             "Weighted_connectance" = "Weighted Connectance (Wc)",
+                             "H" = "Shannon Diversity (H')",
+                             "J" = "Interaction Evenness (J')",
+                             "H2" = "Network Specialization (H2)",
+                             "Robustness_LL" = "Robustness (LL)",
+                             "Functional_complementarity_LL" = "Functional Complementarity (LL)"
+)
+
+# ---- Plot ----
+
+ggplot(meadow_long, aes(x = "", y = Value, color = month)) +
+  geom_boxplot(fill = "grey85",
+               color = "black",
+               width = 0.4,
+               outlier.shape = NA) +
+  geom_point(size = 3) +
+  facet_wrap(~ Metric,
+             scales = "free_y",
+             ncol = 3,
+             strip.position = "left") +
+  theme_bw(base_size = 14) +
+  labs(x = "", y = NULL, color = "Month") +
+  theme(
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.y.left = element_text(angle = 90, face = "bold", size = 14),
+    
+    # Axis formatting
+    axis.title = element_text(size = 18, face = "bold"),
+    axis.text.y = element_text(size = 14),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    
+    # Legend formatting
+    legend.position = "bottom",
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1, "cm")
+  )
+
+
+
+
+
+
+##riparian
+#april
+riparian.april.networklevel <-networklevel(Riparian.Aprile)
+write.csv(riparian.october.networklevel, file="Riparian april network level.csv")
+
+#may
+riparian.may.networklevel <-networklevel(Riparian.Maggio)
+write.csv(riparian.may.networklevel, file="Riparian may network level.csv")
+
+#june
+riparian.june.networklevel <-networklevel(Riparian.Giugno)
+write.csv(riparian.june.networklevel, file="Riparian june network level.csv")
+
+#july
+riparian.july.networklevel <-networklevel(Riparian.Luglio)
+write.csv(riparian.july.networklevel, file="Riparian july network level.csv")
+
+#august
+riparian.august.networklevel <-networklevel(Riparian.Agosto)
+write.csv(riparian.august.networklevel, file="Riparian august network level.csv")
+
+#september
+riparian.september.networklevel <-networklevel(Riparian.Settembre)
+write.csv(riparian.september.networklevel, file="Riparian september network level.csv")
+
+#october
+riparian.october.networklevel <-networklevel(Riparian.Ottobre)
+write.csv(riparian.october.networklevel, file="Riparian october network level.csv")
+
+
+##plotting riparian
+
+library(tidyverse)
+
+# ---- Data ----
+riparian <- data.frame(
+  month = c("May","June","July","August","September","October","April"),
+  
+  Links_per_species = c(0.666666667,1,1,1,0.6,0.6,0.6),
+  
+  Modularity_Q = c(NA,0.044077135,0.08,0.258264463,
+                   0.46875,0.277777778,0.277777778),
+  
+  Weighted_NODF = c(NA,57.14285714,50,34.375,
+                    0,0,0),
+  
+  Weighted_connectance = c(0.376501214,0.403651895,0.406356507,
+                           0.288999626,0.233370559,
+                           0.280010975,0.280010975),
+  
+  H = c(0.230323541,1.503675468,1.395397092,
+        2.071343303,0.900256051,
+        1.011404265,1.011404265),
+  
+  J = c(0.33228663,0.723115047,0.778785945,
+        0.691431381,0.502442469,
+        0.564475468,0.564475468),
+  
+  H2 = c(NA,0,0.040478923,
+         0.301505499,1,
+         1,1),
+  
+  Robustness_LL = c(NA,0.55921875,0.48,
+                    0.496546319,0.315555556,
+                    0.1275,0.1275),
+  
+  Functional_complementarity_LL = c(0,17.21800053,
+                                    10.98536903,18.79381276,
+                                    11.48418432,7.483314774,
+                                    7.483314774)
+)
+
+# ---- Order months chronologically ----
+riparian$month <- factor(
+  riparian$month,
+  levels = c("April","May","June","July",
+             "August","September","October")
+)
+
+# ---- Long format ----
+riparian_long <- riparian %>%
+  pivot_longer(
+    cols = -month,
+    names_to = "Metric",
+    values_to = "Value"
+  )
+
+# ---- Rename panels ----
+riparian_long$Metric <- recode(riparian_long$Metric,
+                               "Links_per_species" = "Links per Species",
+                               "Modularity_Q" = "Modularity (Q)",
+                               "Weighted_NODF" = "Weighted Nestedness (NODF)",
+                               "Weighted_connectance" = "Weighted Connectance (Wc)",
+                               "H" = "Shannon Diversity (H')",
+                               "J" = "Interaction Evenness (J')",
+                               "H2" = "Network Specialization (H2)",
+                               "Robustness_LL" = "Robustness (LL)",
+                               "Functional_complementarity_LL" = "Functional Complementarity (LL)"
+)
+
+# ---- Plot ----
+ggplot(riparian_long, aes(x = "", y = Value, color = month)) +
+  geom_boxplot(fill = "grey85",
+               color = "black",
+               width = 0.4,
+               outlier.shape = NA) +
+  geom_point(size = 3) +
+  facet_wrap(~ Metric,
+             scales = "free_y",
+             ncol = 3,
+             strip.position = "left") +
+  theme_bw(base_size = 12) +
+  labs(x = "", y = "", color = "Month") +
+  theme(
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.y.left = element_text(angle = 90, face = "bold"),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.5, "cm")
+  )
+
+###again
+ggplot(riparian_long, aes(x = "", y = Value, color = month)) +
+  geom_boxplot(fill = "grey85",
+               color = "black",
+               width = 0.4,
+               outlier.shape = NA) +
+  geom_point(size = 3) +
+  facet_wrap(~ Metric,
+             scales = "free_y",
+             ncol = 3,
+             strip.position = "left") +
+  theme_bw(base_size = 14) +
+  labs(x = "", y = NULL, color = "Month") +
+  theme(
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.y.left = element_text(angle = 90, face = "bold", size = 14),
+    
+    # Axis formatting
+    axis.title = element_text(size = 18, face = "bold"),
+    axis.text.y = element_text(size = 14),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    
+    # Legend formatting
+    legend.position = "bottom",
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1, "cm")
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###qualitative data
+
+##bar graph pollinator abundance by FG
+# Create dataframe
+pollinators <- data.frame(
+  Group = c("Bee fly", "Beetle", "Butterfly",
+            "Hoverfly", "Moth", "Wasp", "Bee"),
+  Abundance = c(2, 60, 385, 2, 3, 144, 308)
+)
+
+# Preserve order
+pollinators$Group <- factor(
+  pollinators$Group,
+  levels = c("Bee fly", "Beetle", "Butterfly",
+             "Hoverfly", "Moth", "Wasp", "Bee")
+)
+
+# Custom color palette
+custom_colors <- c(
+  "Bee" = "#F2C500",
+  "Bee fly" = "#0094FF",
+  "Beetle" = "#00A86B",
+  "Butterfly" = "#FF6A00",
+  "Hoverfly" = "#7A00CC",
+  "Moth" = "#CC0033",
+  "Wasp" = "#0047A3"
+)
+
+library(ggplot2)
+
+
+axis.text.x = element_text(angle = 45, hjust = 1)
+
+ggplot(pollinators, aes(x = Group, y = Abundance, fill = Group)) +
+  geom_bar(
+    stat = "identity",
+    width = 0.7,
+    color = "black",
+    linewidth = 0.3
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = "Functional Group",
+    y = "Abundance"
+  ) +
+  theme(
+    legend.position = "none",
+    
+    # Axis titles
+    axis.title = element_text(size = 18, face = "bold"),
+    
+    # Axis tick labels
+    axis.text.x = element_text(size = 15, angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 15)
+  )
