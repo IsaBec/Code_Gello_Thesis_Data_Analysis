@@ -948,7 +948,7 @@ ggplot(riparian_long, aes(x = "", y = Value, color = month)) +
 pollinators <- data.frame(
   Group = c("Bee fly", "Beetle", "Butterfly",
             "Hoverfly", "Moth", "Wasp", "Bee"),
-  Abundance = c(2, 60, 385, 2, 3, 144, 308)
+  Abundance = c(24, 163, 58, 50, 1, 34, 308)
 )
 
 # Preserve order
@@ -997,3 +997,45 @@ ggplot(pollinators, aes(x = Group, y = Abundance, fill = Group)) +
     axis.text.x = element_text(size = 15, angle = 45, hjust = 1),
     axis.text.y = element_text(size = 15)
   )
+
+##qualitative network of photographic pollinators
+library(bipartite)
+
+
+names(qualitativo.gello.foto.Isa)
+head(qualitativo.gello.foto.Isa, 3)
+
+any(duplicated(rownames(qualitativo.gello.foto.Isa)))
+
+library(bipartite)
+
+M <- as.matrix(qualitativo.gello.foto.Isa)
+storage.mode(M) <- "numeric"
+
+# optional: remove all-zero rows/cols to keep the plot readable
+M <- M[rowSums(M) > 0, colSums(M) > 0, drop = FALSE]
+
+
+
+
+library(bipartite)
+
+M <- as.matrix(qualitativo.gello.foto.Isa)
+storage.mode(M) <- "numeric"
+
+
+# Remove dots in names (replace with spaces)
+colnames(M) <- gsub("\\.", " ", colnames(M))
+rownames(M) <- gsub("\\.", " ", rownames(M))
+
+plotweb(M,
+        srt = 90,
+        text_size = 1,
+        higher_color = "orange",
+        lower_color = "green",
+        link_color = "higher",
+        font = 3)
+
+
+
+
